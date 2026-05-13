@@ -27,8 +27,18 @@ function openLogs() {
 }
 
 function createIcon() {
-  const iconPath = path.join(__dirname, '..', 'assets', 'icon.png');
-  if (fs.existsSync(iconPath)) return nativeImage.createFromPath(iconPath);
+  const preferredIcons = [
+    path.join(__dirname, '..', 'assets', 'tray.png'),
+    path.join(__dirname, '..', 'assets', 'icon.png')
+  ];
+
+  for (const iconPath of preferredIcons) {
+    if (fs.existsSync(iconPath)) {
+      const image = nativeImage.createFromPath(iconPath);
+      if (!image.isEmpty()) return image.resize({ width: 16, height: 16 });
+    }
+  }
+
   return nativeImage.createEmpty();
 }
 
