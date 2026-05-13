@@ -1,6 +1,6 @@
 {
   "name": "careid-kiosk-bridge",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "CareID Kiosk Bridge for USB NFC readers",
   "main": "src/main.js",
   "private": true,
@@ -51,7 +51,8 @@
       {
         "provider": "github",
         "owner": "gabrielfds",
-        "repo": "careid-kiosk-bridge-releases"
+        "repo": "careid-kiosk-bridge-releases",
+        "releaseType": "release"
       }
     ]
   }
