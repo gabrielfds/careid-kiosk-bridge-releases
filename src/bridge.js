@@ -9,6 +9,8 @@ let readerConnected = false;
 let readerName = null;
 let lastReadKey = null;
 let lastReadAt = 0;
+let lastDetectionKey = null;
+let lastDetectionAt = 0;
 let pendingWrite = null;
 let lastWriteResult = null;
 
@@ -390,6 +392,15 @@ function shouldDebounce(uid, payload) {
   return false;
 }
 
+function shouldDebounceDetection(uid, atrHex) {
+  const key = uid || atrHex || '';
+  const now = Date.now();
+  if (key && key === lastDetectionKey && now - lastDetectionAt < DUPLICATE_WINDOW_MS) return true;
+  lastDetectionKey = key;
+  lastDetectionAt = now;
+  return false;
+}
+
 wss.on('connection', (socket) => {
   console.log('[careid-bridge] WebSocket client connected');
   socket.send(JSON.stringify({
@@ -471,6 +482,11 @@ nfc.on('reader', (reader) => {
       }
 
       const uid = card.uid || await getUid(reader) || atrHex;
+
+      if (!pendingWrite && shouldDebounceDetection(uid, atrHex)) {
+        console.log(`[careid-bridge] Duplicate detection ignored before NDEF read: ${uid}`);
+        return;
+      }
 
       if (pendingWrite) {
         const writeJob = pendingWrite;
