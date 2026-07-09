@@ -1,16 +1,16 @@
 {
-  "name": "careid-kiosk-bridge",
-  "version": "0.1.4",
-  "description": "CareID Kiosk Bridge for USB NFC readers",
+  "name": "neuvo-care-kiosk-bridge",
+  "version": "0.1.0",
+  "description": "Neuvo Care Kiosk Bridge for USB NFC readers",
   "main": "src/main.js",
   "private": true,
-  "author": "Neuvo / CareID",
+  "author": "Neuvo",
   "license": "UNLICENSED",
   "scripts": {
     "start": "electron .",
     "build": "electron-builder --win nsis",
     "dist": "electron-builder --win nsis --publish never",
-    "release": "electron-builder --win nsis --publish always"
+    "release": "electron-builder --win nsis --publish never"
   },
   "dependencies": {
     "auto-launch": "^5.0.6",
@@ -24,8 +24,8 @@
     "electron-builder": "^25.1.8"
   },
   "build": {
-    "appId": "br.com.careidtag.kioskbridge",
-    "productName": "CareID Kiosk Bridge",
+    "appId": "br.com.neuvo.care.kioskbridge",
+    "productName": "Neuvo Care Kiosk Bridge",
     "directories": {
       "output": "dist"
     },
@@ -36,7 +36,7 @@
     ],
     "win": {
       "target": "nsis",
-      "publisherName": "CareID",
+      "publisherName": "Neuvo",
       "icon": "assets/icon.ico"
     },
     "nsis": {
@@ -45,16 +45,8 @@
       "perMachine": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "CareID Kiosk Bridge",
+      "shortcutName": "Neuvo Care Kiosk Bridge",
       "runAfterFinish": true
-    },
-    "publish": [
-      {
-        "provider": "github",
-        "owner": "gabrielfds",
-        "repo": "careid-kiosk-bridge-releases",
-        "releaseType": "release"
-      }
-    ]
+    }
   }
 }

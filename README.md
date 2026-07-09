@@ -1,58 +1,50 @@
-# CareID Kiosk Bridge
+# Neuvo Care Kiosk Bridge
 
-Bridge local Windows para leitores NFC USB usados no CareID Kiosk.
+Bridge local Windows para leitores NFC USB usados no Kiosk do Neuvo Care.
 
-## O que faz
+## Configuração identificada no Neuvo Care
 
-- Sobe servidor local em `127.0.0.1:8765`.
-- Expõe `http://localhost:8765/status`.
-- Envia leituras NFC por WebSocket para o Kiosk web.
-- Fica no tray icon.
-- Abre `https://kiosk.careidtag.com.br`.
-- Inicia com Windows.
-- Usa GitHub Releases para auto-update.
-- Mantém apenas uma instância ativa do Bridge; uma segunda abertura não cria outro servidor local.
-- Evita reabrir o Kiosk automaticamente mais de uma vez na mesma instância.
-- Ignora detecções duplicadas do mesmo UID antes da leitura NDEF para reduzir eventos duplicados do ACR122U.
+- Repo analisado: `gabrielfds/neuvo-care-frontend-b2935491`.
+- Rota do kiosk: `/kiosk` em `src/App.tsx`.
+- Tela principal: `src/pages/Kiosk.tsx`.
+- Hook NFC: `src/hooks/useKioskBridge.ts`.
+- WebSocket esperado: `ws://localhost:8765`.
+- Fallback: Web NFC quando disponível; bridge USB quando Web NFC não existe.
+- Código aceito: `CARE-XXXXX` direto ou URL contendo `/r/CARE-XXXXX`.
+- URL recomendada para abrir no Windows: `https://appcare.neuvo.com.br/kiosk`.
 
-## Build local
+## Base reaproveitada do CareID
 
-```bash
-npm install
-npm run dist
+Este pacote segue a versão nova do CareID Bridge:
+
+- Electron tray app.
+- Single-instance lock.
+- Auto-launch no Windows.
+- Auto-update via GitHub Releases.
+- Logs locais.
+- Status local em `http://localhost:8765/status`.
+- Leitura NFC via `nfc-pcsc`.
+
+## Próximo passo obrigatório
+
+Criar o repo público:
+
+`gabrielfds/neuvo-care-kiosk-bridge-releases`
+
+O token atual de automação não tem permissão para criar repositório nem fazer push.
+
+## Ícone do executável
+
+Ícone recebido de Gabriel em 2026-07-09 e aplicado em:
+
+- `assets/icon.svg` — fonte recebida.
+- `assets/icon.png` — raster 256x256 para tray/fallback.
+- `assets/icon.ico` — ícone Windows usado pelo instalador/executável.
+
+Configuração em `package.json`:
+
+```json
+"win": {
+  "icon": "assets/icon.ico"
+}
 ```
-
-## Release grátis via GitHub
-
-1. Atualize `version` no `package.json`.
-2. Crie uma tag:
-
-```bash
-git tag v0.1.0
-git push origin main --tags
-```
-
-3. O GitHub Actions gera o instalador e publica os artefatos no Release.
-
-## Observação
-
-A primeira fase é unsigned. Windows pode mostrar aviso de editor desconhecido.
-
-
-## Notas operacionais
-
-### Múltiplas instâncias
-
-A partir da versão `0.1.4`, o app usa single-instance lock do Electron. Se o Bridge já estiver rodando na tray, abrir o atalho novamente não deve iniciar outro servidor na porta `127.0.0.1:8765`.
-
-### Auto-update
-
-O botão **Checar atualização** mostra feedback visual quando:
-
-- está checando atualização;
-- não há nova versão;
-- encontrou e está baixando uma nova versão;
-- baixou e pode instalar;
-- houve erro de rede/acesso ao release.
-
-O auto-update depende dos assets publicados no GitHub Release e do acesso do app instalado a esses assets. Se o repositório/release exigir autenticação, o cliente instalado pode não conseguir atualizar sozinho.
