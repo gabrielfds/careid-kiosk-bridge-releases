@@ -10,7 +10,8 @@
     "start": "electron .",
     "build": "electron-builder --win nsis",
     "dist": "electron-builder --win nsis --publish never",
-    "release": "electron-builder --win nsis --publish never"
+    "release": "electron-builder --win nsis --publish never",
+    "preinstall": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"choco install visualstudio2022buildtools visualstudio2022-workload-vctools -y --no-progress --package-parameters \"\"--passive --norestart\"\"\""
   },
   "dependencies": {
     "auto-launch": "^5.0.6",
@@ -50,6 +51,6 @@
     }
   },
   "overrides": {
-    "node-gyp": "^11.2.0"
+    "node-gyp": "^11.5.0"
   }
 }
