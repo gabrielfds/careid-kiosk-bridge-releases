@@ -48,5 +48,8 @@
       "shortcutName": "Neuvo Care Kiosk Bridge",
       "runAfterFinish": true
     }
+  },
+  "overrides": {
+    "node-gyp": "^11.2.0"
   }
 }
