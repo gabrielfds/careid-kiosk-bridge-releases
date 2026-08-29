@@ -448,116 +448,131 @@ wss.on('connection', (socket) => {
   });
 });
 
-const nfc = new NFC();
+let nfc = null;
 
-nfc.on('reader', (reader) => {
-  // We don't use Android HCE/AID flows here. CareID needs raw NTAG access
-  // for ACR122U reads/writes, so automatic ISO 14443-4 processing must stay off.
-  reader.autoProcessing = false;
+function attachNfcListeners(instance) {
+  instance.on('reader', (reader) => {
+    // We don't use Android HCE/AID flows here. CareID needs raw NTAG access
+    // for ACR122U reads/writes, so automatic ISO 14443-4 processing must stay off.
+    reader.autoProcessing = false;
 
-  readerConnected = true;
-  readerName = reader.reader.name;
-  console.log(`[careid-bridge] Reader connected: ${readerName}`);
+    readerConnected = true;
+    readerName = reader.reader.name;
+    console.log(`[careid-bridge] Reader connected: ${readerName}`);
 
-  reader.on('card', async (card) => {
-    try {
-      console.log('[careid-bridge] Card detected:', card);
+    reader.on('card', async (card) => {
+      try {
+        console.log('[careid-bridge] Card detected:', card);
 
-      const atrHex = toHex(card.atr || Buffer.alloc(0));
-      const looksLikePhantomDetection = card.standard === 'TAG_ISO_14443_4' && atrHex === '3B00' && !card.uid;
-      if (looksLikePhantomDetection) {
-        console.warn('[careid-bridge] Ignoring unstable ACR122U phantom detection (ATR 3B00). Remove the tag and approach it again slowly.');
-        const writeSocket = pendingWrite?.socket;
-        if (writeSocket && writeSocket.readyState === writeSocket.OPEN) {
-          writeSocket.send(JSON.stringify({
-            type: 'nfc_write_ready',
-            requestId: pendingWrite.requestId,
-            readerConnected,
-            reader: readerName,
-            message: 'Detecção instável do leitor. Afaste a tag e aproxime novamente devagar.',
-            timestamp: new Date().toISOString(),
-          }));
+        const atrHex = toHex(card.atr || Buffer.alloc(0));
+        const looksLikePhantomDetection = card.standard === 'TAG_ISO_14443_4' && atrHex === '3B00' && !card.uid;
+        if (looksLikePhantomDetection) {
+          console.warn('[careid-bridge] Ignoring unstable ACR122U phantom detection (ATR 3B00). Remove the tag and approach it again slowly.');
+          const writeSocket = pendingWrite?.socket;
+          if (writeSocket && writeSocket.readyState === writeSocket.OPEN) {
+            writeSocket.send(JSON.stringify({
+              type: 'nfc_write_ready',
+              requestId: pendingWrite.requestId,
+              readerConnected,
+              reader: readerName,
+              message: 'Detecção instável do leitor. Afaste a tag e aproxime novamente devagar.',
+              timestamp: new Date().toISOString(),
+            }));
+          }
+          return;
         }
-        return;
-      }
 
-      const uid = card.uid || await getUid(reader) || atrHex;
+        const uid = card.uid || await getUid(reader) || atrHex;
 
-      if (!pendingWrite && shouldDebounceDetection(uid, atrHex)) {
-        console.log(`[careid-bridge] Duplicate detection ignored before NDEF read: ${uid}`);
-        return;
-      }
-
-      if (pendingWrite) {
-        const writeJob = pendingWrite;
-        pendingWrite = null;
-        try {
-          await writeTagUrl(reader, writeJob.url);
-          const result = {
-            type: 'nfc_write_result',
-            success: true,
-            payload: writeJob.url,
-            reader: readerName,
-            uid,
-            requestId: writeJob.requestId,
-            timestamp: new Date().toISOString(),
-          };
-          console.log('[careid-bridge] Tag written:', result);
-          lastWriteResult = { ok: true, ...result };
-          if (writeJob.socket?.readyState === writeJob.socket.OPEN) writeJob.socket.send(JSON.stringify(result));
-        } catch (error) {
-          const result = {
-            type: 'nfc_write_result',
-            success: false,
-            error: error.message || 'Erro ao gravar tag NFC.',
-            reader: readerName,
-            uid,
-            requestId: writeJob.requestId,
-            timestamp: new Date().toISOString(),
-          };
-          console.error('[careid-bridge] Tag write error:', error);
-          lastWriteResult = { ok: false, ...result };
-          if (writeJob.socket?.readyState === writeJob.socket.OPEN) writeJob.socket.send(JSON.stringify(result));
+        if (!pendingWrite && shouldDebounceDetection(uid, atrHex)) {
+          console.log(`[careid-bridge] Duplicate detection ignored before NDEF read: ${uid}`);
+          return;
         }
-        return;
+
+        if (pendingWrite) {
+          const writeJob = pendingWrite;
+          pendingWrite = null;
+          try {
+            await writeTagUrl(reader, writeJob.url);
+            const result = {
+              type: 'nfc_write_result',
+              success: true,
+              payload: writeJob.url,
+              reader: readerName,
+              uid,
+              requestId: writeJob.requestId,
+              timestamp: new Date().toISOString(),
+            };
+            console.log('[careid-bridge] Tag written:', result);
+            lastWriteResult = { ok: true, ...result };
+            if (writeJob.socket?.readyState === writeJob.socket.OPEN) writeJob.socket.send(JSON.stringify(result));
+          } catch (error) {
+            const result = {
+              type: 'nfc_write_result',
+              success: false,
+              error: error.message || 'Erro ao gravar tag NFC.',
+              reader: readerName,
+              uid,
+              requestId: writeJob.requestId,
+              timestamp: new Date().toISOString(),
+            };
+            console.error('[careid-bridge] Tag write error:', error);
+            lastWriteResult = { ok: false, ...result };
+            if (writeJob.socket?.readyState === writeJob.socket.OPEN) writeJob.socket.send(JSON.stringify(result));
+          }
+          return;
+        }
+
+        const payload = await readTagPayload(reader, card);
+
+        if (shouldDebounce(uid, payload)) {
+          console.log(`[careid-bridge] Duplicate read ignored: ${uid}`);
+          return;
+        }
+
+        const message = {
+          type: 'nfc_read',
+          payload,
+          reader: readerName,
+          uid,
+          timestamp: new Date().toISOString(),
+        };
+
+        console.log('[careid-bridge] Tag read:', message);
+        broadcast(message);
+      } catch (error) {
+        console.error('[careid-bridge] Tag read error:', error);
       }
+    });
 
-      const payload = await readTagPayload(reader, card);
+    reader.on('error', (error) => {
+      console.error(`[careid-bridge] Reader error (${readerName}):`, error);
+    });
 
-      if (shouldDebounce(uid, payload)) {
-        console.log(`[careid-bridge] Duplicate read ignored: ${uid}`);
-        return;
-      }
-
-      const message = {
-        type: 'nfc_read',
-        payload,
-        reader: readerName,
-        uid,
-        timestamp: new Date().toISOString(),
-      };
-
-      console.log('[careid-bridge] Tag read:', message);
-      broadcast(message);
-    } catch (error) {
-      console.error('[careid-bridge] Tag read error:', error);
-    }
+    reader.on('end', () => {
+      console.log(`[careid-bridge] Reader removed: ${readerName}`);
+      readerConnected = false;
+      readerName = null;
+    });
   });
 
-  reader.on('error', (error) => {
-    console.error(`[careid-bridge] Reader error (${readerName}):`, error);
+  instance.on('error', (error) => {
+    console.error('[careid-bridge] NFC subsystem error:', error);
   });
+}
 
-  reader.on('end', () => {
-    console.log(`[careid-bridge] Reader removed: ${readerName}`);
-    readerConnected = false;
-    readerName = null;
-  });
-});
-
-nfc.on('error', (error) => {
-  console.error('[careid-bridge] NFC subsystem error:', error);
-});
+// Recria o contexto PC/SC do zero. Necessário porque, no Windows, um leitor
+// plugado depois que o contexto original foi criado às vezes não dispara a
+// notificação de hotplug — só um contexto novo (equivalente a reiniciar o
+// app) volta a enxergá-lo. Chamado tanto na primeira subida quanto sempre
+// que o bridge é reiniciado (menu "Reiniciar Bridge").
+function createNfc() {
+  readerConnected = false;
+  readerName = null;
+  const instance = new NFC();
+  attachNfcListeners(instance);
+  return instance;
+}
 
 
 
@@ -592,6 +607,8 @@ function startBridge(options = {}) {
       return;
     }
 
+    if (!nfc) nfc = createNfc();
+
     const onError = (error) => {
       server.off('listening', onListening);
       reject(error);
@@ -616,6 +633,14 @@ function stopBridge() {
       for (const client of wss.clients) {
         try { client.close(); } catch {}
       }
+      if (nfc) {
+        try { nfc.close(); } catch (error) {
+          console.warn('[careid-bridge] Error closing PC/SC context:', error?.message || error);
+        }
+        nfc = null;
+      }
+      readerConnected = false;
+      readerName = null;
       if (!server.listening) {
         resolve();
         return;
