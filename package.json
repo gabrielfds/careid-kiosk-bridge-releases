@@ -1,6 +1,6 @@
 {
   "name": "careid-kiosk-bridge",
-  "version": "0.2.0",
+  "version": "0.2.0-test.1",
   "description": "CareID Kiosk - native Windows app with embedded USB NFC bridge",
   "main": "src/main.js",
   "private": true,
