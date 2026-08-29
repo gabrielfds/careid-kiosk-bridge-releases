@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<title>Configurar CareID Kiosk</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #0B0F1A;
+    font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    color: #E7EAF2;
+  }
+  .card {
+    width: 380px;
+    background: #131A2B;
+    border: 1px solid #232C42;
+    border-radius: 12px;
+    padding: 28px;
+  }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  p.sub { color: #8792AA; font-size: 13px; margin: 0 0 20px; }
+  label { display: block; font-size: 13px; margin-bottom: 6px; color: #B7BFD3; }
+  input {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid #2C3654;
+    background: #0F1526;
+    color: #E7EAF2;
+    font-size: 14px;
+    margin-bottom: 16px;
+  }
+  button {
+    width: 100%;
+    padding: 11px 12px;
+    border-radius: 8px;
+    border: none;
+    background: #3B6DF6;
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.6; cursor: default; }
+  .error { color: #FF6B6B; font-size: 13px; margin: -8px 0 16px; display: none; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>Configurar Kiosk CareID</h1>
+    <p class="sub">Informe o código da família/unidade deste totem para continuar.</p>
+    <form id="setup-form">
+      <label for="familyCode">Código da família</label>
+      <input id="familyCode" name="familyCode" placeholder="Ex.: CARE-00042" autocomplete="off" autofocus />
+      <div id="error" class="error"></div>
+      <button type="submit" id="submit-btn">Salvar e continuar</button>
+    </form>
+  </div>
+  <script>
+    const form = document.getElementById('setup-form');
+    const input = document.getElementById('familyCode');
+    const errorEl = document.getElementById('error');
+    const submitBtn = document.getElementById('submit-btn');
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const familyCode = input.value.trim();
+      if (!familyCode) {
+        errorEl.textContent = 'Informe o código da família.';
+        errorEl.style.display = 'block';
+        return;
+      }
+      errorEl.style.display = 'none';
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Salvando...';
+      try {
+        await window.__careidKiosk.saveConfig({ familyCode });
+      } catch (err) {
+        errorEl.textContent = 'Não foi possível salvar. Tente novamente.';
+        errorEl.style.display = 'block';
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Salvar e continuar';
+      }
+    });
+  </script>
+</body>
+</html>

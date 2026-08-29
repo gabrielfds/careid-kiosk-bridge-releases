@@ -1,18 +1,18 @@
-# CareID Kiosk Bridge
+# CareID Kiosk
 
-Bridge local Windows para leitores NFC USB usados no CareID Kiosk.
+App Windows nativo do CareID Kiosk, com leitor NFC USB embutido (bridge local).
 
 ## O que faz
 
-- Sobe servidor local em `127.0.0.1:8765`.
+- Abre uma **janela** própria (não tela cheia) carregando `/presenca/:familyCode` do CareID.
+- Na primeira execução (ou via "Configurar família" no menu da bandeja), pede o código da família/unidade do totem e persiste em `kiosk-config.json`.
+- Sobe servidor local em `127.0.0.1:8765` (bridge NFC embutido no mesmo processo).
 - Expõe `http://localhost:8765/status`.
-- Envia leituras NFC por WebSocket para o Kiosk web.
-- Fica no tray icon.
-- Abre `https://kiosk.careidtag.com.br`.
+- Envia leituras NFC por WebSocket/HTTP para a janela do Kiosk (leitura e gravação de tags).
+- Fica no tray icon com atalhos (mostrar kiosk, configurar família, reiniciar bridge, reiniciar kiosk, sair).
 - Inicia com Windows.
 - Usa GitHub Releases para auto-update.
-- Mantém apenas uma instância ativa do Bridge; uma segunda abertura não cria outro servidor local.
-- Evita reabrir o Kiosk automaticamente mais de uma vez na mesma instância.
+- Mantém apenas uma instância ativa (single-instance lock); uma segunda abertura só foca a janela existente.
 - Ignora detecções duplicadas do mesmo UID antes da leitura NDEF para reduzir eventos duplicados do ACR122U.
 
 ## Build local
