@@ -7,29 +7,18 @@ const { autoUpdater } = require('electron-updater');
 const { startBridge, getBridgeState, stopBridge } = require('./bridge');
 
 const APP_NAME = 'CareID Kiosk';
-const BASE_KIOSK_URL = process.env.CAREID_KIOSK_URL || 'https://kiosk.careidtag.com.br';
-const SETUP_FILE = path.join(__dirname, 'setup.html');
+// Domínio real do app CareID (login, admin, portal, presença) — não o subdomínio
+// "kiosk." antigo, que não hospeda as rotas de autenticação.
+const BASE_KIOSK_URL = process.env.CAREID_KIOSK_URL || 'https://careidtag.com.br';
+const LOGIN_URL = `${BASE_KIOSK_URL}/auth`;
 
-// --- Config persistence (family code for this totem) ---
-function getConfigPath() {
-  return path.join(app.getPath('userData'), 'kiosk-config.json');
-}
-function readConfig() {
-  try {
-    const raw = fs.readFileSync(getConfigPath(), 'utf8');
-    return JSON.parse(raw);
-  } catch { return null; }
-}
-function writeConfig(config) {
-  try { fs.writeFileSync(getConfigPath(), JSON.stringify(config, null, 2), 'utf8'); } catch {}
-}
-function clearConfig() {
-  try { fs.unlinkSync(getConfigPath()); } catch {}
-}
+// A janela sempre abre no login real do CareID (email/senha). O próprio app
+// web decide para onde ir depois: administrador cai em /admin (de onde dá
+// pra gravar tags), família cai em /portal (de onde dá pra abrir o modo
+// Presença daquela família). Não há mais um "código da família" fixo por
+// totem — quem loga escolhe.
 function getKioskUrl() {
-  const cfg = readConfig();
-  if (cfg?.familyCode) return `${BASE_KIOSK_URL}/presenca/${encodeURIComponent(cfg.familyCode)}`;
-  return null;
+  return LOGIN_URL;
 }
 
 let tray = null;
@@ -93,13 +82,8 @@ function statusLabel() {
   return `Bridge conectado: ${state.readerName || 'leitor NFC'}`;
 }
 
-function loadKioskContent() {
+function loadKioskContent(url = getKioskUrl()) {
   if (!kioskWindow || kioskWindow.isDestroyed()) return;
-  const url = getKioskUrl();
-  if (!url) {
-    kioskWindow.loadFile(SETUP_FILE);
-    return;
-  }
   const doLoad = () => kioskWindow?.loadURL(url);
   if (!bridgeState.serverStarted) {
     setTimeout(doLoad, 3000);
@@ -138,11 +122,18 @@ function createKioskWindow() {
     }
   });
 
+  // O portal usa window.open(url, '_blank') para abrir o modo Presença
+  // (ex.: botão "Abrir Kiosk" em /portal/presenca). Mantemos tudo dentro da
+  // mesma janela nativa em vez de deixar o Electron criar uma janela nova.
+  kioskWindow.webContents.setWindowOpenHandler(({ url }) => {
+    loadKioskContent(url);
+    return { action: 'deny' };
+  });
+
   loadKioskContent();
 
-  kioskWindow.webContents.on('did-fail-load', (_, errorCode, _desc, validatedURL) => {
+  kioskWindow.webContents.on('did-fail-load', (_, errorCode) => {
     if (Math.abs(errorCode) === 3) return; // aborted (ex.: navegação intencional)
-    if (validatedURL && validatedURL.startsWith('file://')) return; // erro carregando setup.html não deve reciclar
     log.warn('Kiosk failed to load, retrying in 5s', { errorCode });
     clearTimeout(kioskRestartTimer);
     kioskRestartTimer = setTimeout(() => {
@@ -155,7 +146,7 @@ function createKioskWindow() {
     clearTimeout(kioskRestartTimer);
     kioskRestartTimer = setTimeout(createKioskWindow, 2000);
   });
-  log.info('Kiosk window opened', getKioskUrl() || '(setup screen)');
+  log.info('Kiosk window opened', getKioskUrl());
 }
 
 function rebuildMenu() {
@@ -170,10 +161,10 @@ function rebuildMenu() {
       if (winAlive) kioskWindow.focus();
       else { clearTimeout(kioskRestartTimer); createKioskWindow(); }
     }},
-    { label: 'Configurar família', click: () => {
+    { label: 'Voltar para o login', click: () => {
       if (!kioskWindow || kioskWindow.isDestroyed()) { createKioskWindow(); return; }
       kioskWindow.focus();
-      kioskWindow.loadFile(SETUP_FILE);
+      loadKioskContent(LOGIN_URL);
     }},
     { label: 'Abrir status local', click: () => shell.openExternal('http://localhost:8765/status') },
     { label: 'Abrir pasta de logs', click: openLogs },
@@ -322,17 +313,6 @@ async function checkForUpdates(manual = false) {
 }
 
 // --- IPC handlers (called from preload/renderer) ---
-ipcMain.handle('kiosk:save-config', (event, config) => {
-  writeConfig(config);
-  log.info('Kiosk config saved', config);
-  const sender = BrowserWindow.fromWebContents(event.sender);
-  if (sender === kioskWindow) loadKioskContent();
-});
-ipcMain.handle('kiosk:clear-config', () => {
-  clearConfig();
-  log.info('Kiosk config cleared');
-});
-ipcMain.handle('kiosk:get-config', () => readConfig());
 ipcMain.handle('kiosk:quit', () => {
   kioskWindow?.removeAllListeners('closed');
   app.quit();

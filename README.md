@@ -4,12 +4,11 @@ App Windows nativo do CareID Kiosk, com leitor NFC USB embutido (bridge local).
 
 ## O que faz
 
-- Abre uma **janela** própria (não tela cheia) carregando `/presenca/:familyCode` do CareID.
-- Na primeira execução (ou via "Configurar família" no menu da bandeja), pede o código da família/unidade do totem e persiste em `kiosk-config.json`.
+- Abre uma **janela** própria (não tela cheia) carregando a tela de **login** real do CareID (`/auth`). Quem loga escolhe o caminho: administrador cai em `/admin` (de onde grava tags), família cai em `/portal` (de onde abre o modo Presença daquela família).
 - Sobe servidor local em `127.0.0.1:8765` (bridge NFC embutido no mesmo processo).
 - Expõe `http://localhost:8765/status`.
 - Envia leituras NFC por WebSocket/HTTP para a janela do Kiosk (leitura e gravação de tags).
-- Fica no tray icon com atalhos (mostrar kiosk, configurar família, reiniciar bridge, reiniciar kiosk, sair).
+- Fica no tray icon com atalhos (mostrar kiosk, voltar para o login, reiniciar bridge, reiniciar kiosk, sair).
 - Inicia com Windows.
 - Usa GitHub Releases para auto-update.
 - Mantém apenas uma instância ativa (single-instance lock); uma segunda abertura só foca a janela existente.
